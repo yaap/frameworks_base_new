@@ -101,4 +101,7 @@
     <bool name="config_mediaControlsRippleByDefault">true</bool>
     <bool name="config_mediaControlsTurbulenceByDefault">true</bool>
 
+    <!-- Whether to force enable multi resolution configuration for camera -->
+    <bool name="config_forceMultiResolution">false</bool>
+
 </resources>
