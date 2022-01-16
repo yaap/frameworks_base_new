@@ -189,7 +189,8 @@ public class SystemSettings {
                 Settings.System.NAVBAR_LONG_PRESS_GESTURE,
                 Settings.System.RAMPING_RINGER_DURATION,
                 Settings.System.RAMPING_RINGER_START_VOLUME,
-                Settings.System.RAMPING_RINGER_NO_SILENCE
+                Settings.System.RAMPING_RINGER_NO_SILENCE,
+                Settings.System.NOTIFICATION_SOUND_VIB_SCREEN_ON
         ));
         if (Flags.backUpSmoothDisplayAndForcePeakRefreshRate()) {
             settings.add(Settings.System.PEAK_REFRESH_RATE);
