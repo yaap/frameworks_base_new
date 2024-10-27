@@ -254,7 +254,7 @@ object Flags {
     val SCREEN_CONTENTS_TRANSLATION = unreleasedFlag("screen_contents_translation")
 
     // 804 - monochromatic themes
-    @JvmField val MONOCHROMATIC_THEME = unreleasedFlag("monochromatic")
+    @JvmField val MONOCHROMATIC_THEME = releasedFlag("monochromatic")
 
     // TODO(b/293380347): Tracking Bug
     @JvmField val COLOR_FIDELITY = unreleasedFlag("color_fidelity")
