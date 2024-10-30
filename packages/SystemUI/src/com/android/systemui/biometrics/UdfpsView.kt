@@ -78,6 +78,7 @@ class UdfpsView(
     }
 
     override fun onFinishInflate() {
+        super.onFinishInflate()
         ghbmView = findViewById(R.id.hbm_view)
     }
 
