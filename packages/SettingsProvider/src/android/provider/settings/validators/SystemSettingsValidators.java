@@ -349,5 +349,8 @@ public class SystemSettingsValidators {
         VALIDATORS.put(System.VOLUME_PANEL_HAPTICS, BOOLEAN_VALIDATOR);
         VALIDATORS.put(System.THREE_FINGER_GESTURE, BOOLEAN_VALIDATOR);
         VALIDATORS.put(System.NAVBAR_LONG_PRESS_GESTURE, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(System.RAMPING_RINGER_DURATION, new InclusiveIntegerRangeValidator(2, 20));
+        VALIDATORS.put(System.RAMPING_RINGER_START_VOLUME, new InclusiveIntegerRangeValidator(0, 90));
+        VALIDATORS.put(System.RAMPING_RINGER_NO_SILENCE, BOOLEAN_VALIDATOR);
     }
 }

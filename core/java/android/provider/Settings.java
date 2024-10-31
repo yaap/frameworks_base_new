@@ -6936,6 +6936,28 @@ public final class Settings {
         public static final String NAVBAR_LONG_PRESS_GESTURE = "navbar_long_press_gesture";
 
         /**
+         * Ramping ringer total duration in seconds
+         * @hide
+         */
+        @Readable
+        public static final String RAMPING_RINGER_DURATION = "ramping_ringer_duration";
+
+        /**
+         * Ramping ringer starting volume in decimal percentage
+         * @hide
+         */
+        @Readable
+        public static final String RAMPING_RINGER_START_VOLUME = "ramping_ringer_start_volume";
+
+        /**
+         * Whther to immediately start ramping volume
+         * instead of waiting for half of {@link RAMPING_RINGER_DURATION}
+         * @hide
+         */
+        @Readable
+        public static final String RAMPING_RINGER_NO_SILENCE = "ramping_ringer_no_silence";
+
+        /**
          * Keys we no longer back up under the current schema, but want to continue to
          * process when restoring historical backup datasets.
          *
