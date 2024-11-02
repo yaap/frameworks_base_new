@@ -1106,7 +1106,7 @@ public class DisplayModeDirector {
             boolean lowPowerModeAllowed = Settings.Global.getInt(mContext.getContentResolver(),
                     Settings.Global.LOW_POWER_MODE_DMD, 1 /*default*/) != 0;
             final Vote vote;
-            if (mIsLowPower) {
+            if (mIsLowPower && lowPowerModeAllowed) {
                 vote = Vote.forRenderFrameRates(0f, 60f);
             } else {
                 vote = null;
