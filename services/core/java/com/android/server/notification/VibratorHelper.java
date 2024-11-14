@@ -270,18 +270,21 @@ public final class VibratorHelper {
      * @param insistent {@code true} if the vibration should loop until it is cancelled.
      */
     public VibrationEffect createFallbackVibration(boolean insistent) {
-        if (mVibrator.hasFrequencyControl()) {
-            VibrationEffect effect = createPwleWaveformVibration(mFallbackPwlePattern, insistent);
-            if (effect != null) {
-                return effect;
-            }
-        } else {
-            VibrationEffect effect = createPwleWaveformVibrationFallback(mFallbackPwlePattern, insistent);
-            if (effect != null) {
-                return effect;
+        final boolean hasCustom = mCustomPattern != null;
+	if (!hasCustom) {
+            if (mVibrator.hasFrequencyControl()) {
+                VibrationEffect effect = createPwleWaveformVibration(mFallbackPwlePattern, insistent);
+                if (effect != null) {
+                    return effect;
+                }
+            } else {
+                VibrationEffect effect = createPwleWaveformVibrationFallback(mFallbackPwlePattern, insistent);
+                if (effect != null) {
+                    return effect;
+                }
             }
         }
-        return createWaveformVibration(mFallbackPattern, insistent);
+        return createWaveformVibration(hasCustom ? mCustomPattern : mFallbackPattern, insistent);
     }
 
     /**
