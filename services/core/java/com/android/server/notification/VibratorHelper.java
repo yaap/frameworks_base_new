@@ -146,6 +146,56 @@ public final class VibratorHelper {
     /**
      * Safely create a {@link VibrationEffect} from given waveform description.
      *
+     * <p>The waveform is described by a sequence of values for target amplitude and
+     * duration, that are forwarded to {@link VibrationEffect.createWaveform}.
+     *
+     * <p>This method returns {@code null} if the pattern is also {@code null} or invalid.
+     *
+     * @param values The list of values describing the waveform as a sequence of target amplitude
+     *               and duration.
+     * @param insistent {@code true} if the vibration should loop until it is cancelled.
+     */
+    @Nullable
+    public static VibrationEffect createPwleWaveformVibrationFallback(@Nullable float[] values,
+            boolean insistent) {
+        try {
+            if (values == null) {
+                return null;
+            }
+
+            int length = values.length;
+            // The waveform is described by pairs (amplitude, duration)
+            if (length == 0 || length % 2 != 0) {
+                return null;
+            }
+
+            int[] amplitudes = new int[length / 2];
+            long[] timings = new long[length / 2];
+
+            for (int i = 0, j = 0; i < length; i += 2, j++) {
+                amplitudes[j] = (int) values[i];
+                timings[j] = (long) values[i + 1];
+            }
+
+            VibrationEffect effect = VibrationEffect.createWaveform(timings, amplitudes, -1);
+
+            if (insistent) {
+                return VibrationEffect.startComposition()
+                        .repeatEffectIndefinitely(effect)
+                        .compose();
+            }
+            return effect;
+        } catch (IllegalArgumentException e) {
+            Slog.e(TAG, "Error creating vibration PWLE waveform with pattern: "
+                    + Arrays.toString(values));
+        }
+        return null;
+    }
+
+
+    /**
+     * Safely create a {@link VibrationEffect} from given waveform description.
+     *
      * <p>The waveform is described by a sequence of values for target amplitude, frequency and
      * duration, that are forwarded to {@link VibrationEffect.WaveformBuilder#addTransition}.
      *
@@ -225,6 +275,11 @@ public final class VibratorHelper {
             if (effect != null) {
                 return effect;
             }
+        } else {
+            VibrationEffect effect = createPwleWaveformVibrationFallback(mFallbackPwlePattern, insistent);
+            if (effect != null) {
+                return effect;
+            }
         }
         return createWaveformVibration(mFallbackPattern, insistent);
     }
@@ -236,10 +291,17 @@ public final class VibratorHelper {
      */
     public VibrationEffect createDefaultVibration(boolean insistent) {
         final boolean hasCustom = mCustomPattern != null;
-        if (mVibrator.hasFrequencyControl() && !hasCustom) {
-            VibrationEffect effect = createPwleWaveformVibration(mDefaultPwlePattern, insistent);
-            if (effect != null) {
-                return effect;
+	if (!hasCustom) {
+            if (mVibrator.hasFrequencyControl()) {
+                VibrationEffect effect = createPwleWaveformVibration(mDefaultPwlePattern, insistent);
+                if (effect != null) {
+                    return effect;
+                }
+            } else {
+                VibrationEffect effect = createPwleWaveformVibrationFallback(mDefaultPwlePattern, insistent);
+                if (effect != null) {
+                    return effect;
+                }
             }
         }
         return createWaveformVibration(hasCustom ? mCustomPattern : mDefaultPattern, insistent);
