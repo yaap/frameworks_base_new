@@ -48,6 +48,7 @@ import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.PowerManagerInternal;
 import android.os.Trace;
 import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
@@ -68,6 +69,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.logging.InstanceId;
 import com.android.internal.util.LatencyTracker;
 import com.android.keyguard.KeyguardUpdateMonitor;
+import com.android.server.LocalServices;
 import com.android.systemui.Dumpable;
 import com.android.systemui.animation.ActivityTransitionAnimator;
 import com.android.systemui.biometrics.dagger.BiometricsBackground;
@@ -223,6 +225,7 @@ public class UdfpsController implements DozeReceiver, Dumpable {
     private boolean mOnFingerDown;
     private boolean mAttemptedToDismissKeyguard;
     private final Set<Callback> mCallbacks = new HashSet<>();
+    PowerManagerInternal mPowerManagerInternal = LocalServices.getService(PowerManagerInternal.class);
 
     @VisibleForTesting
     public static final VibrationAttributes UDFPS_VIBRATION_ATTRIBUTES =
@@ -1077,6 +1080,10 @@ public class UdfpsController implements DozeReceiver, Dumpable {
 
         final View view = mOverlay.getTouchOverlay();
 
+        if (mPowerManagerInternal != null) {
+            mPowerManagerInternal.setPowerMode(PowerManagerInternal.MODE_LAUNCH, true);
+        }
+
         if (view != null && view.getViewRootImpl() != null) {
             view.getViewRootImpl().notifyRendererOfExpensiveFrame();
         }
@@ -1159,6 +1166,10 @@ public class UdfpsController implements DozeReceiver, Dumpable {
         mOnFingerDown = false;
         unconfigureDisplay(view);
         cancelAodSendFingerUpAction();
+        if (mPowerManagerInternal != null) {
+            mPowerManagerInternal.setPowerMode(PowerManagerInternal.MODE_LAUNCH, false);
+        }
+
     }
 
     /**
