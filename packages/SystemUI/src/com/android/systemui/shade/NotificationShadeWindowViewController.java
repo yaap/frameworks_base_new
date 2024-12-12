@@ -32,6 +32,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.core.view.ViewKt;
+
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.keyguard.AuthKeyguardMessageArea;
 import com.android.keyguard.KeyguardUnfoldTransition;
@@ -40,6 +42,7 @@ import com.android.systemui.Dumpable;
 import com.android.systemui.animation.ActivityTransitionAnimator;
 import com.android.systemui.bouncer.domain.interactor.AlternateBouncerInteractor;
 import com.android.systemui.bouncer.domain.interactor.PrimaryBouncerInteractor;
+import com.android.systemui.bouncer.shared.flag.ComposeBouncerFlags;
 import com.android.systemui.bouncer.ui.binder.BouncerViewBinder;
 import com.android.systemui.classifier.FalsingCollector;
 import com.android.systemui.dagger.SysUISingleton;
@@ -53,6 +56,7 @@ import com.android.systemui.keyguard.KeyguardUnlockAnimationController;
 import com.android.systemui.keyguard.MigrateClocksToBlueprint;
 import com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor;
 import com.android.systemui.keyguard.shared.model.Edge;
+import com.android.systemui.keyguard.shared.model.KeyguardState;
 import com.android.systemui.keyguard.shared.model.TransitionState;
 import com.android.systemui.keyguard.shared.model.TransitionStep;
 import com.android.systemui.res.R;
@@ -114,6 +118,7 @@ public class NotificationShadeWindowViewController implements Dumpable {
     private final PrimaryBouncerInteractor mPrimaryBouncerInteractor;
     private final AlternateBouncerInteractor mAlternateBouncerInteractor;
     private final QuickSettingsController mQuickSettingsController;
+    private final KeyguardTransitionInteractor mKeyguardTransitionInteractor;
     private final GlanceableHubContainerController
             mGlanceableHubContainerController;
     private GestureDetector mPulsingWakeupGestureHandler;
@@ -145,6 +150,7 @@ public class NotificationShadeWindowViewController implements Dumpable {
     private final ShadeExpansionStateManager mShadeExpansionStateManager;
     private final SystemSettings mSystemSettings;
 
+    private ViewGroup mBouncerParentView;
     /**
      * If {@code true}, an external touch sent in {@link #handleExternalTouch(MotionEvent)} has been
      * intercepted and all future touch events for the gesture should be processed by this view.
@@ -225,6 +231,7 @@ public class NotificationShadeWindowViewController implements Dumpable {
         mPulsingGestureListener = pulsingGestureListener;
         mLockscreenHostedDreamGestureListener = lockscreenHostedDreamGestureListener;
         mNotificationInsetsController = notificationInsetsController;
+        mKeyguardTransitionInteractor = keyguardTransitionInteractor;
         mGlanceableHubContainerController = glanceableHubContainerController;
         mFeatureFlagsClassic = featureFlagsClassic;
         mSysUIKeyEventHandler = sysUIKeyEventHandler;
@@ -236,7 +243,7 @@ public class NotificationShadeWindowViewController implements Dumpable {
         // This view is not part of the newly inflated expanded status bar.
         mBrightnessMirror = mView.findViewById(R.id.brightness_mirror_container);
         mDisableSubpixelTextTransitionListener = new DisableSubpixelTextTransitionListener(mView);
-        bouncerViewBinder.bind(mView.findViewById(R.id.keyguard_bouncer_container));
+        bindBouncer(bouncerViewBinder);
 
         collectFlow(mView, keyguardTransitionInteractor.transition(
                 Edge.create(LOCKSCREEN, DREAMING)),
@@ -270,6 +277,36 @@ public class NotificationShadeWindowViewController implements Dumpable {
 
         lockIconViewController.setLockIconView(mView.findViewById(R.id.lock_icon_view));
         dumpManager.registerDumpable(this);
+    }
+
+    private void bindBouncer(BouncerViewBinder bouncerViewBinder) {
+        mBouncerParentView = mView.findViewById(R.id.keyguard_bouncer_container);
+        bouncerViewBinder.bind(mBouncerParentView);
+        if (ComposeBouncerFlags.INSTANCE.isOnlyComposeBouncerEnabled()) {
+            collectFlow(mView, mKeyguardTransitionInteractor.transition(
+                            new Edge.StateToState(KeyguardState.PRIMARY_BOUNCER, null)),
+                    this::onTransitionAwayFromBouncer);
+            collectFlow(mView, mKeyguardTransitionInteractor.transition(
+                            new Edge.StateToState(null, KeyguardState.PRIMARY_BOUNCER)),
+                    this::onTransitionToBouncer);
+            collectFlow(mView, mPrimaryBouncerInteractor.isShowing(),
+                    (showing) -> ViewKt.setVisible(mBouncerParentView, showing));
+        }
+    }
+
+    private void onTransitionToBouncer(TransitionStep transitionStep) {
+        if (transitionStep.getTransitionState() == TransitionState.STARTED) {
+            if (mView.indexOfChild(mBouncerParentView) != -1) {
+                mView.removeView(mBouncerParentView);
+            }
+            mView.addView(mBouncerParentView);
+        }
+    }
+
+    private void onTransitionAwayFromBouncer(TransitionStep transitionStep) {
+        if (transitionStep.getTransitionState() == TransitionState.FINISHED) {
+            mView.removeView(mBouncerParentView);
+        }
     }
 
     /**
@@ -385,7 +422,9 @@ public class NotificationShadeWindowViewController implements Dumpable {
                 }
 
                 mFalsingCollector.onTouchEvent(ev);
-                mPulsingWakeupGestureHandler.onTouchEvent(ev);
+                if (!SceneContainerFlag.isEnabled()) {
+                    mPulsingWakeupGestureHandler.onTouchEvent(ev);
+                }
 
                 if (!SceneContainerFlag.isEnabled()
                         && mGlanceableHubContainerController.onTouchEvent(ev)) {
@@ -443,7 +482,11 @@ public class NotificationShadeWindowViewController implements Dumpable {
                             } else {
                                 return logDownDispatch(ev, "hidden or hiding", true);
                             }
+                        } else {
+                            mShadeLogger.d("NSWVC: bouncer not showing");
                         }
+                    } else {
+                        mShadeLogger.d("NSWVC: touch not within view");
                     }
                 } else if (mIsTrackingBarGesture) {
                     final boolean sendToStatusBar = mStatusBarViewController.sendTouchToView(ev);
@@ -452,6 +495,9 @@ public class NotificationShadeWindowViewController implements Dumpable {
                     }
                     return logDownDispatch(ev, "sending bar gesture to status bar",
                             sendToStatusBar);
+                }
+                if (isDown) {
+                    mShadeLogger.logNoTouchDispatch(mIsTrackingBarGesture, mExpandAnimationRunning);
                 }
                 return logDownDispatch(ev, "no custom touch dispatch of down event", null);
             }
@@ -719,12 +765,22 @@ public class NotificationShadeWindowViewController implements Dumpable {
 
     @Override
     public void dump(PrintWriter pw, String[] args) {
+        pw.print("  mExpandingBelowNotch=");
+        pw.println(mExpandingBelowNotch);
         pw.print("  mExpandAnimationRunning=");
         pw.println(mExpandAnimationRunning);
-        pw.print("  mTouchCancelled=");
-        pw.println(mTouchCancelled);
+        pw.print("  mExternalTouchIntercepted=");
+        pw.println(mExternalTouchIntercepted);
+        pw.print("  mIsOcclusionTransitionRunning=");
+        pw.println(mIsOcclusionTransitionRunning);
+        pw.print("  mIsTrackingBarGesture=");
+        pw.println(mIsTrackingBarGesture);
+        pw.print("  mLaunchAnimationTimeout=");
+        pw.println(mLaunchAnimationTimeout);
         pw.print("  mTouchActive=");
         pw.println(mTouchActive);
+        pw.print("  mTouchCancelled=");
+        pw.println(mTouchCancelled);
     }
 
     @VisibleForTesting

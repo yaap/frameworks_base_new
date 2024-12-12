@@ -26,6 +26,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.database.ContentObserver
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Handler
 import android.os.UserHandle
@@ -112,6 +113,7 @@ constructor(
         @Main private val uiExecutor: Executor,
         @Background private val bgExecutor: Executor,
         @Main private val handler: Handler,
+        @Background private val bgHandler: Handler,
         @Named(DATE_SMARTSPACE_DATA_PLUGIN)
         optionalDatePlugin: Optional<BcSmartspaceDataPlugin>,
         @Named(WEATHER_SMARTSPACE_DATA_PLUGIN)
@@ -307,20 +309,11 @@ constructor(
         dumpManager.registerDumpable(this)
     }
 
-    fun isEnabled(): Boolean {
-        execution.assertIsMainThread()
+    val isEnabled: Boolean = plugin != null
 
-        return plugin != null
-    }
-
-    fun isDateWeatherDecoupled(): Boolean {
-        execution.assertIsMainThread()
-
-        return datePlugin != null && weatherPlugin != null
-    }
+    val isDateWeatherDecoupled: Boolean = datePlugin != null && weatherPlugin != null
 
     fun isWeatherEnabled(): Boolean {
-        execution.assertIsMainThread()
         val showWeather = systemSettings.getIntForUser(
             LOCKSCREEN_WEATHER_PROVIDER,
             LOCKSCREEN_WEATHER_PROVIDER_DEFAULT,
@@ -339,10 +332,10 @@ constructor(
     fun buildAndConnectDateView(parent: ViewGroup): View? {
         execution.assertIsMainThread()
 
-        if (!isEnabled()) {
+        if (!isEnabled) {
             throw RuntimeException("Cannot build view when not enabled")
         }
-        if (!isDateWeatherDecoupled()) {
+        if (!isDateWeatherDecoupled) {
             throw RuntimeException("Cannot build date view when not decoupled")
         }
 
@@ -363,10 +356,10 @@ constructor(
     fun buildAndConnectWeatherView(parent: ViewGroup): View? {
         execution.assertIsMainThread()
 
-        if (!isEnabled()) {
+        if (!isEnabled) {
             throw RuntimeException("Cannot build view when not enabled")
         }
-        if (!isDateWeatherDecoupled()) {
+        if (!isDateWeatherDecoupled) {
             throw RuntimeException("Cannot build weather view when not decoupled")
         }
 
@@ -387,7 +380,7 @@ constructor(
     fun buildAndConnectView(parent: ViewGroup): View? {
         execution.assertIsMainThread()
 
-        if (!isEnabled()) {
+        if (!isEnabled) {
             throw RuntimeException("Cannot build view when not enabled")
         }
 
@@ -415,6 +408,7 @@ constructor(
 
         val ssView = plugin.getView(parent)
         configPlugin?.let { ssView.registerConfigProvider(it) }
+        ssView.setBgHandler(bgHandler)
         ssView.setUiSurface(BcSmartspaceDataPlugin.UI_SURFACE_LOCK_SCREEN_AOD)
         ssView.setTimeChangedDelegate(SmartspaceTimeChangedDelegate(keyguardUpdateMonitor))
         ssView.registerDataProvider(plugin)
@@ -559,8 +553,22 @@ constructor(
         plugin?.unregisterListener(listener)
     }
 
+    fun isWithinSmartspaceBounds(x: Int, y: Int): Boolean {
+        smartspaceViews.forEach {
+            val bounds = Rect()
+            with(it as View) {
+                this.getBoundsOnScreen(bounds)
+                if (bounds.contains(x, y)) {
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
     private fun filterSmartspaceTarget(t: SmartspaceTarget): Boolean {
-        if (isDateWeatherDecoupled() && t.featureType == SmartspaceTarget.FEATURE_WEATHER) {
+        if (isDateWeatherDecoupled && t.featureType == SmartspaceTarget.FEATURE_WEATHER) {
             return false
         }
         if (!showNotifications) {
@@ -576,7 +584,7 @@ constructor(
                 // Only the primary user can have an associated managed profile, so only show
                 // content for the managed profile if the primary user is active
                 userTracker.userHandle.identifier == UserHandle.USER_SYSTEM &&
-                        (!t.isSensitive || showSensitiveContentForManagedUser)
+                    (!t.isSensitive || showSensitiveContentForManagedUser)
             }
             else -> {
                 false

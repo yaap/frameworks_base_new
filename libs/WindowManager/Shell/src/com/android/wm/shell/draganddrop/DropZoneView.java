@@ -16,7 +16,7 @@
 
 package com.android.wm.shell.draganddrop;
 
-import static com.android.wm.shell.animation.Interpolators.FAST_OUT_SLOW_IN;
+import static com.android.wm.shell.shared.animation.Interpolators.FAST_OUT_SLOW_IN;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -38,7 +38,7 @@ import android.widget.ImageView;
 import androidx.annotation.Nullable;
 
 import com.android.internal.policy.ScreenDecorationsUtils;
-import com.android.internal.protolog.common.ProtoLog;
+import com.android.internal.protolog.ProtoLog;
 import com.android.wm.shell.R;
 import com.android.wm.shell.protolog.ShellProtoLogGroup;
 

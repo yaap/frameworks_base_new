@@ -51,18 +51,20 @@ import javax.inject.Inject
  * display state, wake-ups are handled by [com.android.systemui.doze.DozeSensors].
  */
 @SysUISingleton
-class PulsingGestureListener @Inject constructor(
-        private val context: Context,
-        private val falsingManager: FalsingManager,
-        private val dockManager: DockManager,
-        private val powerInteractor: PowerInteractor,
-        private val ambientDisplayConfiguration: AmbientDisplayConfiguration,
-        private val statusBarStateController: StatusBarStateController,
-        private val shadeLogger: ShadeLogger,
-        private val dozeInteractor: DozeInteractor,
-        userTracker: UserTracker,
-        tunerService: TunerService,
-        dumpManager: DumpManager
+class PulsingGestureListener
+@Inject
+constructor(
+    private val context: Context,
+    private val falsingManager: FalsingManager,
+    private val dockManager: DockManager,
+    private val powerInteractor: PowerInteractor,
+    private val ambientDisplayConfiguration: AmbientDisplayConfiguration,
+    private val statusBarStateController: StatusBarStateController,
+    private val shadeLogger: ShadeLogger,
+    private val dozeInteractor: DozeInteractor,
+    userTracker: UserTracker,
+    tunerService: TunerService,
+    dumpManager: DumpManager
 ) : GestureDetector.SimpleOnGestureListener(), Dumpable {
     private val vibrator: Vibrator
     private var doubleTapEnabled = false
@@ -81,8 +83,8 @@ class PulsingGestureListener @Inject constructor(
         val tunable = Tunable { key: String?, _: String? ->
             when (key) {
                 Settings.Secure.DOZE_DOUBLE_TAP_GESTURE ->
-                    doubleTapEnabled = ambientDisplayConfiguration.doubleTapGestureEnabled(
-                            userTracker.userId)
+                    doubleTapEnabled =
+                        ambientDisplayConfiguration.doubleTapGestureEnabled(userTracker.userId)
                 Settings.Secure.DOZE_TAP_SCREEN_GESTURE ->
                     singleTapEnabled = ambientDisplayConfiguration.tapGestureEnabled(
                             userTracker.userId)
@@ -123,6 +125,10 @@ class PulsingGestureListener @Inject constructor(
     }
 
     override fun onSingleTapUp(e: MotionEvent): Boolean {
+        return onSingleTapUp(e.x, e.y)
+    }
+
+    fun onSingleTapUp(x: Float, y: Float): Boolean {
         val isNotDocked = !dockManager.isDocked
         shadeLogger.logSingleTapUp(statusBarStateController.isDozing, singleTapEnabled, isNotDocked)
         if (statusBarStateController.isDozing && singleTapEnabled && isNotDocked
@@ -133,11 +139,13 @@ class PulsingGestureListener @Inject constructor(
             if (proximityIsNotNear && isNotAFalseTap) {
                 shadeLogger.d("Single tap handled, requesting centralSurfaces.wakeUpIfDozing")
                 if (singleTapVibrate) wakeVibrate()
-                dozeInteractor.setLastTapToWakePosition(Point(e.x.toInt(), e.y.toInt()))
+                dozeInteractor.setLastTapToWakePosition(Point(x.toInt(), y.toInt()))
                 powerInteractor.wakeUpIfDozing("PULSING_SINGLE_TAP", PowerManager.WAKE_REASON_TAP)
             }
+
             return true
         }
+
         shadeLogger.d("onSingleTapUp event ignored")
         return false
     }
@@ -147,10 +155,18 @@ class PulsingGestureListener @Inject constructor(
      * motion events for a double tap.
      */
     override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+        if (e.actionMasked != MotionEvent.ACTION_UP) {
+            return false
+        }
+
+        return onDoubleTapEvent()
+    }
+
+    fun onDoubleTapEvent(): Boolean {
         // React to the [MotionEvent.ACTION_UP] event after double tap is detected. Falsing
         // checks MUST be on the ACTION_UP event.
-        if (e.actionMasked == MotionEvent.ACTION_UP &&
-                statusBarStateController.isDozing &&
+        if (
+            statusBarStateController.isDozing &&
                 (doubleTapEnabled || singleTapEnabled || doubleTapEnabledNative) &&
                 !doubleTapAmbientEnabled && doubleTapAmbientAllowed &&
                 !falsingManager.isProximityNear &&
@@ -160,6 +176,7 @@ class PulsingGestureListener @Inject constructor(
             powerInteractor.wakeUpIfDozing("PULSING_DOUBLE_TAP", PowerManager.WAKE_REASON_TAP)
             return true
         }
+
         return false
     }
 

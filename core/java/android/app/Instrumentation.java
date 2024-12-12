@@ -99,7 +99,7 @@ public class Instrumentation {
      */
     public static final String REPORT_KEY_STREAMRESULT = "stream";
 
-    private static final String TAG = "Instrumentation";
+    static final String TAG = "Instrumentation";
 
     private static final long CONNECT_TIMEOUT_MILLIS = 60_000;
 
@@ -108,6 +108,8 @@ public class Instrumentation {
     // If set, will print the stack trace for activity starts within the process
     static final boolean DEBUG_START_ACTIVITY = Build.IS_DEBUGGABLE &&
             SystemProperties.getBoolean("persist.wm.debug.start_activity", false);
+    static final boolean DEBUG_FINISH_ACTIVITY = Build.IS_DEBUGGABLE &&
+            SystemProperties.getBoolean("persist.wm.debug.finish_activity", false);
 
     /**
      * @hide
@@ -2416,9 +2418,9 @@ public class Instrumentation {
      * @hide
      */
     @android.ravenwood.annotation.RavenwoodKeep
-    public final void basicInit(Context context) {
-        mInstrContext = context;
-        mAppContext = context;
+    public final void basicInit(Context instrContext, Context appContext) {
+        mInstrContext = instrContext;
+        mAppContext = appContext;
     }
 
     /** @hide */

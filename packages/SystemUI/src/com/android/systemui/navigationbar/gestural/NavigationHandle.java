@@ -35,7 +35,7 @@ import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
 import com.android.settingslib.Utils;
 import com.android.systemui.Dependency;
-import com.android.systemui.navigationbar.buttons.ButtonInterface;
+import com.android.systemui.navigationbar.views.buttons.ButtonInterface;
 import com.android.systemui.res.R;
 
 public class NavigationHandle extends View implements ButtonInterface {

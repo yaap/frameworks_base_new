@@ -37,6 +37,7 @@ import androidx.annotation.VisibleForTesting;
 import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
 import com.android.systemui.Dumpable;
+import com.android.systemui.Flags;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Background;
 import com.android.systemui.dagger.qualifiers.Main;
@@ -53,6 +54,8 @@ import com.android.systemui.statusbar.policy.ConfigurationController;
 import com.android.systemui.statusbar.policy.DevicePostureController;
 import com.android.systemui.unfold.FoldAodAnimationController;
 import com.android.systemui.unfold.SysUIUnfoldComponent;
+import com.android.systemui.util.settings.SecureSettings;
+
 import java.io.PrintWriter;
 import java.util.Optional;
 
@@ -83,6 +86,7 @@ public class DozeParameters implements
     private final FoldAodAnimationController mFoldAodAnimationController;
     private final UnlockedScreenOffAnimationController mUnlockedScreenOffAnimationController;
     private final UserTracker mUserTracker;
+    private final SecureSettings mSecureSettings;
 
     private boolean mControlScreenOffAnimation;
     private boolean mIsQuickPickupEnabled;
@@ -125,7 +129,8 @@ public class DozeParameters implements
             ConfigurationController configurationController,
             StatusBarStateController statusBarStateController,
             UserTracker userTracker,
-            DozeInteractor dozeInteractor) {
+            DozeInteractor dozeInteractor,
+            SecureSettings secureSettings) {
         mResources = resources;
         mAmbientDisplayConfiguration = ambientDisplayConfiguration;
         mAlwaysOnPolicy = alwaysOnDisplayPolicy;
@@ -139,6 +144,7 @@ public class DozeParameters implements
         mUnlockedScreenOffAnimationController = unlockedScreenOffAnimationController;
         mUserTracker = userTracker;
         mDozeInteractor = dozeInteractor;
+        mSecureSettings = secureSettings;
 
         keyguardUpdateMonitor.registerCallback(mKeyguardVisibilityCallback);
         configurationController.addCallback(this);
@@ -151,7 +157,8 @@ public class DozeParameters implements
             mFoldAodAnimationController.addCallback(this);
         }
 
-        SettingsObserver quickPickupSettingsObserver = new SettingsObserver(context, handler);
+        SettingsObserver quickPickupSettingsObserver =
+                new SettingsObserver(context, handler, mSecureSettings);
         quickPickupSettingsObserver.observe();
 
         batteryController.addCallback(new BatteryStateChangeCallback() {
@@ -468,18 +475,36 @@ public class DozeParameters implements
                 Settings.Secure.getUriFor(Settings.Secure.DOZE_ALWAYS_ON);
         private final Context mContext;
 
-        SettingsObserver(Context context, Handler handler) {
+        private final Handler mHandler;
+        private final SecureSettings mSecureSettings;
+
+        SettingsObserver(Context context, Handler handler, SecureSettings secureSettings) {
             super(handler);
             mContext = context;
+            mHandler = handler;
+            mSecureSettings = secureSettings;
         }
 
         void observe() {
-            ContentResolver resolver = mContext.getContentResolver();
-            resolver.registerContentObserver(mQuickPickupGesture, false, this,
-                    UserHandle.USER_ALL);
-            resolver.registerContentObserver(mPickupGesture, false, this, UserHandle.USER_ALL);
-            resolver.registerContentObserver(mAlwaysOnEnabled, false, this, UserHandle.USER_ALL);
-            update(null);
+            if (Flags.registerContentObserversAsync()) {
+                mSecureSettings.registerContentObserverForUserAsync(mQuickPickupGesture,
+                        this, UserHandle.USER_ALL);
+                mSecureSettings.registerContentObserverForUserAsync(mPickupGesture,
+                        this, UserHandle.USER_ALL);
+                mSecureSettings.registerContentObserverForUserAsync(mAlwaysOnEnabled,
+                        this, UserHandle.USER_ALL,
+                        // The register calls are called in order, so this ensures that update()
+                        // is called after them all and value retrieval isn't racy.
+                        () -> mHandler.post(() -> update(null)));
+            } else {
+                ContentResolver resolver = mContext.getContentResolver();
+                resolver.registerContentObserver(mQuickPickupGesture, false, this,
+                        UserHandle.USER_ALL);
+                resolver.registerContentObserver(mPickupGesture, false, this, UserHandle.USER_ALL);
+                resolver.registerContentObserver(mAlwaysOnEnabled, false, this,
+                        UserHandle.USER_ALL);
+                update(null);
+            }
         }
 
         @Override

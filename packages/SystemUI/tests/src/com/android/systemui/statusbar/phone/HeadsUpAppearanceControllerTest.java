@@ -111,7 +111,6 @@ public class HeadsUpAppearanceControllerTest extends SysuiTestCase {
         mNotificationRoundnessManager = mock(NotificationRoundnessManager.class);
         when(mShadeViewController.getShadeHeadsUpTracker()).thenReturn(mShadeHeadsUpTracker);
         mHeadsUpAppearanceController = new HeadsUpAppearanceController(
-                mock(NotificationIconAreaController.class),
                 mHeadsUpManager,
                 mStatusbarStateController,
                 mPhoneStatusBarTransitions,
@@ -198,7 +197,6 @@ public class HeadsUpAppearanceControllerTest extends SysuiTestCase {
         when(mStackScrollerController.getExpandedHeight()).thenReturn(expandedHeight);
 
         HeadsUpAppearanceController newController = new HeadsUpAppearanceController(
-                mock(NotificationIconAreaController.class),
                 mHeadsUpManager,
                 mStatusbarStateController,
                 mPhoneStatusBarTransitions,

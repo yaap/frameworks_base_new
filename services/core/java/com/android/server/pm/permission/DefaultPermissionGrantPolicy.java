@@ -801,7 +801,7 @@ final class DefaultPermissionGrantPolicy {
                     getDefaultSystemHandlerActivityPackage(pm,
                             SearchManager.INTENT_ACTION_GLOBAL_SEARCH, userId),
                     userId, MICROPHONE_PERMISSIONS, ALWAYS_LOCATION_PERMISSIONS,
-                    NOTIFICATION_PERMISSIONS, PHONE_PERMISSIONS, CALENDAR_PERMISSIONS);
+                    NOTIFICATION_PERMISSIONS);
         }
 
         // Voice recognition
@@ -869,6 +869,12 @@ final class DefaultPermissionGrantPolicy {
                     getDefaultSystemHandlerActivityPackage(pm, ACTION_TRACK, userId), userId,
                     SENSORS_PERMISSIONS);
             }
+
+            // Allow voice search on wear
+            grantPermissionsToSystemPackage(pm,
+                    getDefaultSystemHandlerActivityPackage(pm,
+                            SearchManager.INTENT_ACTION_GLOBAL_SEARCH, userId),
+                    userId, PHONE_PERMISSIONS, CALENDAR_PERMISSIONS, NEARBY_DEVICES_PERMISSIONS);
         }
 
         // Print Spooler
@@ -1347,7 +1353,7 @@ final class DefaultPermissionGrantPolicy {
 
         for (int requestedPermissionNum = 0; requestedPermissionNum < numRequestedPermissions;
                 requestedPermissionNum++) {
-            String permission = requestedPermissions[requestedPermissionNum];
+            String permission = sortedRequestedPermissions[requestedPermissionNum];
 
             // If there is a disabled system app it may request a permission the updated
             // version ot the data partition doesn't, In this case skip the permission.
@@ -1625,10 +1631,12 @@ final class DefaultPermissionGrantPolicy {
     private boolean isSystemOrCertificateMatchingPackage(PackageInfo pi, String cert) {
         if (cert == null) {
             return pi.applicationInfo.isSystemApp();
+        } else if (Objects.equals(cert, "platform")) {
+            return mServiceInternal.isPlatformSigned(pi.packageName);
+        } else {
+            return mContext.getPackageManager().hasSigningCertificate(pi.packageName, HexEncoding.
+                    decode(cert.replace(":", "")), PackageManager.CERT_INPUT_SHA256);
         }
-
-        return mContext.getPackageManager().hasSigningCertificate(pi.packageName, HexEncoding.
-                decode(cert.replace(":", "")), PackageManager.CERT_INPUT_SHA256);
     }
 
     private static boolean doesPackageSupportRuntimePermissions(PackageInfo pkg) {

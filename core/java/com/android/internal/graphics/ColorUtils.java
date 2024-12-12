@@ -23,6 +23,7 @@ import android.annotation.NonNull;
 import android.graphics.Color;
 import android.util.MathUtils;
 
+import android.ravenwood.annotation.RavenwoodKeepWholeClass;
 import com.android.internal.graphics.cam.Cam;
 
 /**
@@ -30,6 +31,7 @@ import com.android.internal.graphics.cam.Cam;
  *
  * A set of color-related utility methods, building upon those available in {@code Color}.
  */
+@RavenwoodKeepWholeClass
 public final class ColorUtils {
 
     private static final double XYZ_WHITE_REFERENCE_X = 95.047;
