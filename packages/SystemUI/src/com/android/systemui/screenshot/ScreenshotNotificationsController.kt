@@ -106,15 +106,6 @@ internal constructor(
 
     /**
      * Shows a notification containing the screenshot and the chip actions
-     * @param imageData for uri. cannot be null
-     * @param bitmap for image preview. can be null
-     */
-    fun showPostActionNotification(imageData: ScreenshotController.SavedImageData, bitmap: Bitmap) {
-        showPostActionNotification(imageData.uri, bitmap)
-    }
-
-    /**
-     * Shows a notification containing the screenshot and the chip actions
      * @param uri image uri
      * @param bitmap for image preview. can be null
      */

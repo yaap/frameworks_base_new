@@ -1823,7 +1823,8 @@ public final class PermissionManager {
     }
 
     /** @hide */
-    public static final String CACHE_KEY_PACKAGE_INFO = "cache_key.package_info";
+    public static final String CACHE_KEY_PACKAGE_INFO =
+            PropertyInvalidatedCache.createSystemCacheKey("package_info");
 
     /** @hide */
     private static final PropertyInvalidatedCache<PermissionQuery, Integer> sPermissionCache =

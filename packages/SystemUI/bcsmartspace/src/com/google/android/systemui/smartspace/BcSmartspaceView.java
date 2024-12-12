@@ -178,6 +178,11 @@ public class BcSmartspaceView extends FrameLayout implements BcSmartspaceDataPlu
         resetPivot();
     }
 
+    @Override
+    public void setBgHandler(Handler bgHandler) {
+
+    }
+
     public void registerDataProvider(BcSmartspaceDataPlugin plugin) {
         this.mDataProvider = plugin;
         plugin.registerListener(this);

@@ -62,9 +62,8 @@ import com.android.systemui.util.mockito.argumentCaptor
 import com.android.systemui.util.mockito.capture
 import com.android.systemui.util.mockito.eq
 import com.android.systemui.util.mockito.mock
-import com.android.systemui.util.mockito.whenever
 import com.android.systemui.util.mockito.withArgCaptor
-import com.android.systemui.util.settings.SecureSettings
+import com.android.systemui.util.settings.FakeSettings
 import com.android.wm.shell.bubbles.Bubble
 import com.android.wm.shell.bubbles.Bubbles
 import com.google.common.truth.Truth.assertThat
@@ -87,6 +86,7 @@ import org.mockito.Mockito.spy
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyZeroInteractions
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.whenever
 
 /** atest SystemUITests:NoteTaskControllerTest */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -107,10 +107,10 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
     @Mock private lateinit var shortcutManager: ShortcutManager
     @Mock private lateinit var activityManager: ActivityManager
     @Mock private lateinit var devicePolicyManager: DevicePolicyManager
-    @Mock private lateinit var secureSettings: SecureSettings
     private val userTracker = FakeUserTracker()
     private val testDispatcher = UnconfinedTestDispatcher()
     private val testScope = TestScope(testDispatcher)
+    private val secureSettings = FakeSettings(testDispatcher) { userTracker.userId }
 
     @Before
     fun setUp() {
@@ -140,7 +140,6 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         whenever(activityManager.getRunningTasks(anyInt())).thenReturn(emptyList())
         whenever(userManager.isManagedProfile(workUserInfo.id)).thenReturn(true)
         whenever(context.resources).thenReturn(getContext().resources)
-        whenever(secureSettings.userTracker).thenReturn(userTracker)
     }
 
     private fun createNoteTaskController(
@@ -246,6 +245,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
         verifyZeroInteractions(bubbles, keyguardManager, userManager, eventLogger)
     }
+
     // endregion
 
     // region showNoteTask
@@ -358,14 +358,11 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
     @Test
     fun showNoteTask_defaultUserSet_shouldStartActivityWithExpectedUserAndLogUiEvent() {
-        whenever(
-                secureSettings.getIntForUser(
-                    /* name= */ eq(Settings.Secure.DEFAULT_NOTE_TASK_PROFILE),
-                    /* def= */ any(),
-                    /* userHandle= */ any()
-                )
-            )
-            .thenReturn(10)
+        secureSettings.putIntForUser(
+            /* name= */ Settings.Secure.DEFAULT_NOTE_TASK_PROFILE,
+            /* value= */ 10,
+            /* userHandle= */ userTracker.userId
+        )
         val user10 = UserHandle.of(/* userId= */ 10)
 
         val expectedInfo =
@@ -459,6 +456,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         verify(eventLogger).logNoteTaskOpened(expectedInfo)
         verifyZeroInteractions(bubbles)
     }
+
     // endregion
 
     // region setNoteTaskShortcutEnabled
@@ -540,6 +538,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         assertThat(argument.value.className)
             .isEqualTo(CreateNoteTaskShortcutActivity::class.java.name)
     }
+
     // endregion
 
     // region keyguard policy
@@ -606,6 +605,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
         verifyNoteTaskOpenInBubbleInUser(userTracker.userHandle)
     }
+
     // endregion
 
     // region showNoteTask, COPE devices
@@ -631,14 +631,11 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
     @Test
     fun showNoteTask_copeDevices_tailButtonEntryPoint_shouldStartBubbleInTheUserSelectedUser() {
-        whenever(
-                secureSettings.getIntForUser(
-                    /* name= */ eq(Settings.Secure.DEFAULT_NOTE_TASK_PROFILE),
-                    /* def= */ any(),
-                    /* userHandle= */ any()
-                )
-            )
-            .thenReturn(mainUserInfo.id)
+        secureSettings.putIntForUser(
+            /* name= */ Settings.Secure.DEFAULT_NOTE_TASK_PROFILE,
+            /* value= */ mainUserInfo.id,
+            /* userHandle= */ userTracker.userId
+        )
         whenever(devicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile).thenReturn(true)
         userTracker.set(mainAndWorkProfileUsers, mainAndWorkProfileUsers.indexOf(mainUserInfo))
 
@@ -666,6 +663,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
         verifyNoteTaskOpenInBubbleInUser(mainUserInfo.userHandle)
     }
+
     // endregion
 
     private fun verifyNoteTaskOpenInBubbleInUser(userHandle: UserHandle) {
@@ -705,6 +703,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
         verify(controller).updateNoteTaskAsUser(user)
     }
+
     // endregion
 
     // region updateNoteTaskAsUser
@@ -734,6 +733,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         val intent = withArgCaptor { verify(context).startServiceAsUser(capture(), eq(user)) }
         assertThat(intent).hasComponentClass(NoteTaskControllerUpdateService::class.java)
     }
+
     // endregion
 
     // region internalUpdateNoteTaskAsUser
@@ -815,6 +815,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         verify(shortcutManager, never()).enableShortcuts(any())
         verify(shortcutManager, never()).updateShortcuts(any())
     }
+
     // endregion
 
     // startregion updateNoteTaskForAllUsers
@@ -829,6 +830,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         verify(controller).updateNoteTaskAsUser(mainUserInfo.userHandle)
         verify(controller).updateNoteTaskAsUser(workUserInfo.userHandle)
     }
+
     // endregion
 
     // region getUserForHandlingNotesTaking
@@ -844,14 +846,11 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
     @Test
     fun getUserForHandlingNotesTaking_cope_userSelectedWorkProfile_tailButton_shouldReturnWorkProfileUser() { // ktlint-disable max-line-length
-        whenever(
-                secureSettings.getIntForUser(
-                    /* name= */ eq(Settings.Secure.DEFAULT_NOTE_TASK_PROFILE),
-                    /* def= */ any(),
-                    /* userHandle= */ any()
-                )
-            )
-            .thenReturn(workUserInfo.id)
+        secureSettings.putIntForUser(
+            /* name= */ Settings.Secure.DEFAULT_NOTE_TASK_PROFILE,
+            /* value= */ workUserInfo.id,
+            /* userHandle= */ userTracker.userId
+        )
         whenever(devicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile).thenReturn(true)
         userTracker.set(mainAndWorkProfileUsers, mainAndWorkProfileUsers.indexOf(mainUserInfo))
 
@@ -862,14 +861,11 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
     @Test
     fun getUserForHandlingNotesTaking_cope_userSelectedMainProfile_tailButton_shouldReturnMainProfileUser() { // ktlint-disable max-line-length
-        whenever(
-                secureSettings.getIntForUser(
-                    /* name= */ eq(Settings.Secure.DEFAULT_NOTE_TASK_PROFILE),
-                    /* def= */ any(),
-                    /* userHandle= */ any()
-                )
-            )
-            .thenReturn(mainUserInfo.id)
+        secureSettings.putIntForUser(
+            /* name= */ Settings.Secure.DEFAULT_NOTE_TASK_PROFILE,
+            /* value= */ mainUserInfo.id,
+            /* userHandle= */ userTracker.userId
+        )
         whenever(devicePolicyManager.isOrganizationOwnedDeviceWithManagedProfile).thenReturn(true)
         userTracker.set(mainAndWorkProfileUsers, mainAndWorkProfileUsers.indexOf(mainUserInfo))
 
@@ -914,6 +910,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
 
         assertThat(user).isEqualTo(UserHandle.of(mainUserInfo.id))
     }
+
     // endregion
 
     // startregion startNotesRoleSetting
@@ -970,6 +967,7 @@ internal class NoteTaskControllerTest : SysuiTestCase() {
         assertThat(intentCaptor.value).hasAction(ACTION_MANAGE_DEFAULT_APP)
         assertThat(userCaptor.value).isEqualTo(UserHandle.of(mainUserInfo.id))
     }
+
     // endregion
 
     private companion object {

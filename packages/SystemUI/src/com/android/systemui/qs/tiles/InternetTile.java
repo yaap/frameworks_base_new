@@ -52,6 +52,7 @@ import com.android.systemui.qs.QsEventLogger;
 import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.qs.tiles.dialog.InternetDialogManager;
+import com.android.systemui.qs.tiles.dialog.WifiStateWorker;
 import com.android.systemui.res.R;
 import com.android.systemui.statusbar.connectivity.AccessPointController;
 import com.android.systemui.statusbar.connectivity.IconState;
@@ -85,6 +86,7 @@ public class InternetTile extends SecureQSTile<QSTile.BooleanState> {
 
     protected final InternetSignalCallback mSignalCallback = new InternetSignalCallback();
     private final InternetDialogManager mInternetDialogManager;
+    private final WifiStateWorker mWifiStateWorker;
     final Handler mHandler;
 
     @Inject
@@ -101,11 +103,13 @@ public class InternetTile extends SecureQSTile<QSTile.BooleanState> {
             NetworkController networkController,
             AccessPointController accessPointController,
             InternetDialogManager internetDialogManager,
+            WifiStateWorker wifiStateWorker,
             KeyguardStateController keyguardStateController
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger, keyguardStateController);
         mInternetDialogManager = internetDialogManager;
+        mWifiStateWorker = wifiStateWorker;
         mHandler = mainHandler;
         mController = networkController;
         mAccessPointController = accessPointController;
@@ -122,6 +126,7 @@ public class InternetTile extends SecureQSTile<QSTile.BooleanState> {
     public BooleanState newTileState() {
         BooleanState s = new BooleanState();
         s.forceExpandIcon = true;
+        s.handlesSecondaryClick = true;
         return s;
     }
 
@@ -138,6 +143,13 @@ public class InternetTile extends SecureQSTile<QSTile.BooleanState> {
         mHandler.post(() -> mInternetDialogManager.create(true,
                 mAccessPointController.canConfigMobileData(),
                 mAccessPointController.canConfigWifi(), expandable, getAutoOn()));
+    }
+
+    @Override
+    public void secondaryClick(@Nullable Expandable expandable) {
+        // TODO(b/358352265): Figure out the correct action for the secondary click
+        // Toggle Wifi
+        mWifiStateWorker.setWifiEnabled(!mWifiStateWorker.isWifiEnabled());
     }
 
     @Override

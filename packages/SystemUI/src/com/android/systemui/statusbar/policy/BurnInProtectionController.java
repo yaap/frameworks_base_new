@@ -23,7 +23,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.android.systemui.dagger.SysUISingleton;
-import com.android.systemui.navigationbar.NavigationBarView;
+import com.android.systemui.navigationbar.views.NavigationBarView;
 import com.android.systemui.R;
 import com.android.systemui.statusbar.phone.CentralSurfaces;
 import com.android.systemui.statusbar.phone.PhoneStatusBarView;
