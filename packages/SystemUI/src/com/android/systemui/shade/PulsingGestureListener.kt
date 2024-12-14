@@ -67,6 +67,7 @@ constructor(
     dumpManager: DumpManager
 ) : GestureDetector.SimpleOnGestureListener(), Dumpable {
     private val vibrator: Vibrator
+    private val usesLegacy: Boolean
     private var doubleTapEnabled = false
     private var singleTapEnabled = false
     private var doubleTapEnabledNative = false
@@ -79,6 +80,8 @@ constructor(
 
     init {
         vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        usesLegacy = context.getResources().getString(
+                com.android.internal.R.string.config_dozeDoubleTapSensorType).isBlank()
 
         val tunable = Tunable { key: String?, _: String? ->
             when (key) {
@@ -131,8 +134,9 @@ constructor(
     fun onSingleTapUp(x: Float, y: Float): Boolean {
         val isNotDocked = !dockManager.isDocked
         shadeLogger.logSingleTapUp(statusBarStateController.isDozing, singleTapEnabled, isNotDocked)
-        if (statusBarStateController.isDozing && singleTapEnabled && isNotDocked
-                && !singleTapAmbientEnabled && singleTapAmbientAllowed) {
+        val enabled = (singleTapEnabled && isNotDocked)
+        val allowed = (!singleTapAmbientEnabled && singleTapAmbientAllowed)
+        if (statusBarStateController.isDozing && enabled && allowed) {
             val proximityIsNotNear = !falsingManager.isProximityNear
             val isNotAFalseTap = !falsingManager.isFalseTap(LOW_PENALTY)
             shadeLogger.logSingleTapUpFalsingState(proximityIsNotNear, isNotAFalseTap)
@@ -165,10 +169,11 @@ constructor(
     fun onDoubleTapEvent(): Boolean {
         // React to the [MotionEvent.ACTION_UP] event after double tap is detected. Falsing
         // checks MUST be on the ACTION_UP event.
+        val enabled = (doubleTapEnabled || singleTapEnabled || doubleTapEnabledNative)
+        val allowed = usesLegacy || (!doubleTapAmbientEnabled && doubleTapAmbientAllowed)
         if (
             statusBarStateController.isDozing &&
-                (doubleTapEnabled || singleTapEnabled || doubleTapEnabledNative) &&
-                !doubleTapAmbientEnabled && doubleTapAmbientAllowed &&
+                enabled && allowed &&
                 !falsingManager.isProximityNear &&
                 !falsingManager.isFalseDoubleTap
         ) {
