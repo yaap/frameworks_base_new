@@ -807,7 +807,7 @@ public class MediaControlPanel {
                         mLoadingEffect::finish,
                         TURBULENCE_NOISE_PLAY_DURATION
                 );
-            } else if (mShowTurbulence) {
+            } else {
                 mTurbulenceNoiseController.play(
                         Type.SIMPLEX_NOISE,
                         mTurbulenceNoiseAnimationConfig
@@ -1463,7 +1463,7 @@ public class MediaControlPanel {
     }
 
     private boolean shouldPlayTurbulenceNoise() {
-        return mButtonClicked && !mWasPlaying && isPlaying();
+        return mButtonClicked && !mWasPlaying && isPlaying() && mShowTurbulence;
     }
 
     private TurbulenceNoiseAnimationConfig createTurbulenceNoiseConfig() {
