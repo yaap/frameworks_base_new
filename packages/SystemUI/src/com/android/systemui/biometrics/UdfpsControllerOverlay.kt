@@ -249,6 +249,7 @@ constructor(
                                             udfpsOverlayInteractor = udfpsOverlayInteractor,
                                         )
                                 }
+                                sensorRect = sensorBounds
                             }
                 } else {
                     overlayViewLegacy =
