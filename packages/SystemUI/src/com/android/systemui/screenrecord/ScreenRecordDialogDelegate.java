@@ -73,7 +73,6 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
     private static final String TAG = "ScreenRecordDialog";
     private static final String PREFS = "screenrecord_";
     private static final String PREF_TAPS = "show_taps";
-    private static final String PREF_DOT = "show_dot";
     private static final String PREF_LOW = "use_low_quality_2";
     private static final String PREF_HEVC = "use_hevc";
     private static final String PREF_AUDIO = "use_audio";
@@ -88,7 +87,6 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
     private final Runnable mOnStartRecordingClicked;
     private SystemUIDialog mDialog;
     private Switch mTapsSwitch;
-    private Switch mStopDotSwitch;
     private Switch mHEVCSwitch;
     private Switch mAudioSwitch;
     private Switch mSkipSwitch;
@@ -152,7 +150,6 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
         mAudioSwitch = dialog.findViewById(R.id.screenrecord_audio_switch);
         mTapsSwitch = dialog.findViewById(R.id.screenrecord_taps_switch);
         mSkipSwitch = dialog.findViewById(R.id.screenrecord_skip_switch);
-        mStopDotSwitch = dialog.findViewById(R.id.screenrecord_stopdot_switch);
         mHEVCSwitch = dialog.findViewById(R.id.screenrecord_hevc_switch);
         mOptions = dialog.findViewById(R.id.screen_recording_options);
         ArrayAdapter a = new ScreenRecordingAdapter(dialog.getContext().getApplicationContext(),
@@ -200,7 +197,6 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
         dialog.setOnDismissListener(d -> { savePreferences(); });
 
         mTapsSwitch.setChecked(Prefs.getInt(mUserContext, PREFS + PREF_TAPS, 0) == 1);
-        mStopDotSwitch.setChecked(Prefs.getInt(mUserContext, PREFS + PREF_DOT, 0) == 1);
         mLowQualitySpinner.setSelection(Prefs.getInt(mUserContext, PREFS + PREF_LOW, 0));
         mAudioSwitch.setChecked(Prefs.getInt(mUserContext, PREFS + PREF_AUDIO, 0) == 1);
         mOptions.setSelection(Prefs.getInt(mUserContext, PREFS + PREF_AUDIO_SOURCE, 0));
@@ -215,7 +211,6 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
      */
     private void requestScreenCapture(@Nullable MediaProjectionCaptureTarget captureTarget) {
         boolean showTaps = mTapsSwitch.isChecked();
-        boolean showStopDot = mStopDotSwitch.isChecked();
         boolean skipTime = mSkipSwitch.isChecked();
         boolean audioSwitch = mAudioSwitch.isChecked();
         boolean hevc = mIsHEVCAllowed && mHEVCSwitch.isChecked();
@@ -227,7 +222,7 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
                 RecordingService.getStartIntent(
                         mUserContext, Activity.RESULT_OK,
                         audioMode.ordinal(), showTaps, captureTarget,
-                        showStopDot, lowQuality, hevc),
+                        lowQuality, hevc),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stopIntent = PendingIntent.getService(mUserContext,
                 RecordingService.REQUEST_CODE,
@@ -240,7 +235,6 @@ public class ScreenRecordDialogDelegate implements SystemUIDialog.Delegate {
 
     private void savePreferences() {
         Prefs.putInt(mUserContext, PREFS + PREF_TAPS, mTapsSwitch.isChecked() ? 1 : 0);
-        Prefs.putInt(mUserContext, PREFS + PREF_DOT, mStopDotSwitch.isChecked() ? 1 : 0);
         Prefs.putInt(mUserContext, PREFS + PREF_LOW, mLowQualitySpinner.getSelectedItemPosition());
         Prefs.putInt(mUserContext, PREFS + PREF_AUDIO, mAudioSwitch.isChecked() ? 1 : 0);
         Prefs.putInt(mUserContext, PREFS + PREF_AUDIO_SOURCE, mOptions.getSelectedItemPosition());
