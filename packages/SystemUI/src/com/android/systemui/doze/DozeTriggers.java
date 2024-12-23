@@ -35,6 +35,7 @@ import android.os.UserHandle;
 import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.pocket.PocketManager;
 import android.text.format.Formatter;
 import android.util.IndentingPrintWriter;
 import android.util.Log;
@@ -114,6 +115,7 @@ public class DozeTriggers implements DozeMachine.Part {
     private final UiEventLogger mUiEventLogger;
     private final Vibrator mVibrator;
     private final Handler mMainHandler = new Handler(Looper.getMainLooper());
+    private final PocketManager mPocketManager;
     private final int mTapDelay;
 
     private long mNotificationPulseTime;
@@ -240,6 +242,8 @@ public class DozeTriggers implements DozeMachine.Part {
         mVibrator = (Vibrator) mContext.getSystemService(Context.VIBRATOR_SERVICE);
         mTapDelay = mContext.getResources().getInteger(
                 com.android.internal.R.integer.config_singleTapDelay);
+
+        mPocketManager = (PocketManager) mContext.getSystemService(Context.POCKET_SERVICE);
     }
 
     @Override
@@ -297,6 +301,8 @@ public class DozeTriggers implements DozeMachine.Part {
             callback.accept(null);
         } else if (cachedProxNear != null) {
             callback.accept(cachedProxNear);
+        } else if (mPocketManager.isDeviceInPocket()) {
+            callback.accept(true);
         } else {
             final long start = SystemClock.uptimeMillis();
             mProxCheck.check(PROXIMITY_TIMEOUT_DELAY_MS, near -> {
