@@ -128,5 +128,6 @@ public class GlobalSettings {
         Settings.Global.LOW_POWER_MODE_HBM,
         Settings.Global.LOW_POWER_MODE_DMD,
         Settings.Global.BLUETOOTH_OFF_TIMEOUT,
+        Settings.Global.USER_MIN_AUTO_BRIGHTNESS,
     };
 }
