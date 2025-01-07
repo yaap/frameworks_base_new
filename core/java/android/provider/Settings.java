@@ -13732,6 +13732,44 @@ public final class Settings {
         public static final String VPN_ENFORCE_DNS_STORE = "vpn_enforce_dns_store";
 
         /**
+         * Whether to dim wallpaper when night (dark) UI is activated
+         * @hide
+         */
+        public static final String UI_NIGHT_MODE_DIM_WALL = "ui_night_mode_dim_wall";
+
+        /**
+         * The amount to dim wallpaper when night (dark) UI is activated in %
+         * @hide
+         */
+        public static final String UI_NIGHT_MODE_DIM_WALL_AMOUNT = "ui_night_mode_dim_wall_amount";
+
+        /**
+         * Whether {@link #UI_NIGHT_MODE_DIM_WALL} is currently activated
+         * Not for backup, for shutdown persistence.
+         * @hide
+         */
+        public static final String UI_NIGHT_MODE_DIM_WALL_ACTIVATED = "ui_night_mode_dim_wall_activated";
+
+        /**
+         * Whether to dim wallpaper when night light is activated
+         * @hide
+         */
+        public static final String UI_NIGHT_LIGHT_DIM_WALL = "ui_night_light_dim_wall";
+
+        /**
+         * The amount to dim wallpaper when night light is activated in %
+         * @hide
+         */
+        public static final String UI_NIGHT_LIGHT_DIM_WALL_AMOUNT = "ui_night_light_dim_wall_amount";
+
+        /**
+         * Whether {@link #UI_NIGHT_LIGHT_DIM_WALL} is currently activated
+         * Not for backup, for shutdown persistence.
+         * @hide
+         */
+        public static final String UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED = "ui_night_light_dim_wall_activated";
+
+        /**
          * These entries are considered common between the personal and the managed profile,
          * since the managed profile doesn't get to change them.
          */
