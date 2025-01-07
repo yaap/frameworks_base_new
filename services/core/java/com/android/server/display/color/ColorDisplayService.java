@@ -41,6 +41,7 @@ import android.annotation.Nullable;
 import android.annotation.Size;
 import android.annotation.UserIdInt;
 import android.app.AlarmManager;
+import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -195,12 +196,19 @@ public final class ColorDisplayService extends SystemService {
 
     private final boolean mVisibleBackgroundUsersEnabled;
     private final UserManagerService mUserManager;
+    private final WallpaperManager mWallpaperManager;
+
+    private boolean mNightLightDimWall = false;
+    private boolean mNightLightDimWallActivated = false;
+    private boolean mNightModeDimWallActivated = false;
+    private float mDimAmount = 0.4f;
 
     public ColorDisplayService(Context context) {
         super(context);
         mHandler = new TintHandler(DisplayThread.get().getLooper());
         mVisibleBackgroundUsersEnabled = isVisibleBackgroundUsersEnabled();
         mUserManager = UserManagerService.getInstance();
+        mWallpaperManager = (WallpaperManager) context.getSystemService(Context.WALLPAPER_SERVICE);
     }
 
     @Override
@@ -390,6 +398,21 @@ public final class ColorDisplayService extends SystemService {
                                 onReduceBrightColorsStrengthLevelChanged();
                                 mHandler.sendEmptyMessage(MSG_APPLY_REDUCE_BRIGHT_COLORS);
                                 break;
+                            case Secure.UI_NIGHT_LIGHT_DIM_WALL:
+                                updateWallDimEnabledValue();
+                                maybeDimWall(mNightDisplayTintController.isActivated());
+                                break;
+                            case Secure.UI_NIGHT_LIGHT_DIM_WALL_AMOUNT:
+                                float before = mDimAmount;
+                                updateWallDimAmountValue();
+                                if (before != mDimAmount) {
+                                    dimWall(false);
+                                    maybeDimWall(mNightDisplayTintController.isActivated());
+                                }
+                                break;
+                            case Secure.UI_NIGHT_MODE_DIM_WALL_ACTIVATED:
+                                updateNightModeActivatedValue();
+                                break;
                         }
                     }
                 }
@@ -434,6 +457,18 @@ public final class ColorDisplayService extends SystemService {
                     Secure.getUriFor(Secure.ACCESSIBILITY_DISPLAY_DALTONIZER_SATURATION_LEVEL),
                     false /* notifyForDescendants */, mContentObserver, mCurrentUser);
         }
+        cr.registerContentObserver(Secure.getUriFor(Secure.UI_NIGHT_LIGHT_DIM_WALL),
+                false /* notifyForDescendants */, mContentObserver, mCurrentUser);
+        cr.registerContentObserver(Secure.getUriFor(Secure.UI_NIGHT_LIGHT_DIM_WALL_AMOUNT),
+                false /* notifyForDescendants */, mContentObserver, mCurrentUser);
+        cr.registerContentObserver(Secure.getUriFor(Secure.UI_NIGHT_MODE_DIM_WALL_ACTIVATED),
+                false /* notifyForDescendants */, mContentObserver, mCurrentUser);
+
+        updateWallDimEnabledValue();
+        updateWallDimAmountValue();
+        updateNightModeActivatedValue();
+        mNightLightDimWallActivated = Secure.getIntForUser(cr,
+                Secure.UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED, 0, mCurrentUser) == 1;
 
         // Apply the accessibility settings first, since they override most other settings.
         onAccessibilityInversionChanged();
@@ -710,6 +745,50 @@ public final class ColorDisplayService extends SystemService {
         if (mReduceBrightColorsListener != null) {
             mReduceBrightColorsListener.onReduceBrightColorsStrengthChanged(strength);
         }
+    }
+
+    private void updateWallDimEnabledValue() {
+        mNightLightDimWall = Secure.getIntForUser(getContext().getContentResolver(),
+                Secure.UI_NIGHT_LIGHT_DIM_WALL, 0, mCurrentUser) == 1;
+    }
+
+    private void updateWallDimAmountValue() {
+        mDimAmount = (float) Secure.getIntForUser(getContext().getContentResolver(),
+                Secure.UI_NIGHT_LIGHT_DIM_WALL_AMOUNT, 40, mCurrentUser) / 100f;
+    }
+
+    private void updateNightModeActivatedValue() {
+        mNightModeDimWallActivated = Secure.getIntForUser(getContext().getContentResolver(),
+                Secure.UI_NIGHT_MODE_DIM_WALL_ACTIVATED, 0, mCurrentUser) == 1;
+    }
+
+    private void maybeDimWall(boolean activated) {
+        if (activated && mNightLightDimWall) {
+            dimWall(true);
+        } else if (!activated && mNightLightDimWallActivated) {
+            if (!mNightModeDimWallActivated) {
+                dimWall(false);
+            } else {
+                setDimWallActivated(false);
+            }
+        }
+        if (!mNightLightDimWall && mNightLightDimWallActivated && !mNightModeDimWallActivated) {
+            dimWall(false);
+        }
+    }
+
+    private void dimWall(boolean dim) {
+        if (mWallpaperManager == null) {
+            return;
+        }
+        mWallpaperManager.setWallpaperDimAmount(dim ? mDimAmount : 0f);
+        setDimWallActivated(dim);
+    }
+
+    private void setDimWallActivated(boolean activated) {
+        mNightLightDimWallActivated = activated;
+        Secure.putIntForUser(getContext().getContentResolver(),
+                Secure.UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED, activated ? 1 : 0, mCurrentUser);
     }
 
     /**
@@ -1552,6 +1631,8 @@ public final class ColorDisplayService extends SystemService {
             if (mDisplayWhiteBalanceTintController.isAvailable(getContext())) {
                 updateDisplayWhiteBalanceStatus();
             }
+
+            maybeDimWall(activated);
 
             mHandler.sendEmptyMessage(MSG_APPLY_NIGHT_DISPLAY_ANIMATED);
         }

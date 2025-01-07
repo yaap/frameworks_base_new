@@ -57,6 +57,7 @@ import android.app.UiModeManager;
 import android.app.UiModeManager.AttentionModeThemeOverlayType;
 import android.app.UiModeManager.NightModeCustomReturnType;
 import android.app.UiModeManager.NightModeCustomType;
+import android.app.WallpaperManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -197,6 +198,11 @@ final class UiModeManagerService extends SystemService {
     private boolean mHoldingConfiguration = false;
     private int mCurrentUser;
 
+    private boolean mNightModeDimWall = false;
+    private boolean mNightModeDimWallActivated = false;
+    private boolean mNightLightDimWallActivated = false;
+    private float mDimAmount = 0.4f;
+
     private Configuration mConfiguration = new Configuration();
     boolean mSystemReady;
 
@@ -210,6 +216,7 @@ final class UiModeManagerService extends SystemService {
     private AlarmManager mAlarmManager;
     private PowerManager mPowerManager;
     private KeyguardManager mKeyguardManager;
+    private WallpaperManager mWallpaperManager;
 
     // In automatic scheduling, the user is able
     // to override the computed night mode until the two match
@@ -408,6 +415,37 @@ final class UiModeManagerService extends SystemService {
         }
     };
 
+    private final ContentObserver mWallDimObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+            synchronized (mLock) {
+                switch (uri.getLastPathSegment()) {
+                    case Secure.UI_NIGHT_MODE_DIM_WALL:
+                        mNightModeDimWall = Secure.getIntForUser(
+                                getContext().getContentResolver(),
+                                Secure.UI_NIGHT_MODE_DIM_WALL, 0, mCurrentUser) == 1;
+                        maybeDimWall(mCurUiMode);
+                        break;
+                    case Secure.UI_NIGHT_MODE_DIM_WALL_AMOUNT:
+                        final float amount = (float) Secure.getIntForUser(
+                                getContext().getContentResolver(),
+                                Secure.UI_NIGHT_MODE_DIM_WALL_AMOUNT, 40, mCurrentUser) / 100f;
+                        if (amount != mDimAmount) {
+                            mDimAmount = amount;
+                            dimWall(false);
+                            maybeDimWall(mCurUiMode);
+                        }
+                        break;
+                    case Secure.UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED:
+                        mNightLightDimWallActivated = Secure.getIntForUser(
+                                getContext().getContentResolver(),
+                                Secure.UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED, 0, mCurrentUser) == 1;
+                        break;
+                }
+            }
+        }
+    };
+
     private void updateSystemProperties() {
         int mode = Secure.getIntForUser(getContext().getContentResolver(), Secure.UI_NIGHT_MODE,
                 mNightMode.get(), 0);
@@ -457,6 +495,7 @@ final class UiModeManagerService extends SystemService {
                 mWindowManager = LocalServices.getService(WindowManagerInternal.class);
                 mActivityTaskManager = LocalServices.getService(ActivityTaskManagerInternal.class);
                 mAlarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+                mWallpaperManager = (WallpaperManager) getContext().getSystemService(Context.WALLPAPER_SERVICE);
                 TwilightManager twilightManager = getLocalService(TwilightManager.class);
                 if (twilightManager != null) mTwilightManager = twilightManager;
                 mLocalPowerManager =
@@ -472,6 +511,15 @@ final class UiModeManagerService extends SystemService {
                 context.getContentResolver().registerContentObserver(
                         Secure.getUriFor(Secure.CONTRAST_LEVEL), false,
                         mContrastObserver, UserHandle.USER_ALL);
+                context.getContentResolver().registerContentObserver(
+                        Secure.getUriFor(Secure.UI_NIGHT_MODE_DIM_WALL), false,
+                        mWallDimObserver, UserHandle.USER_ALL);
+                context.getContentResolver().registerContentObserver(
+                        Secure.getUriFor(Secure.UI_NIGHT_MODE_DIM_WALL_AMOUNT), false,
+                        mWallDimObserver, UserHandle.USER_ALL);
+                context.getContentResolver().registerContentObserver(
+                        Secure.getUriFor(Secure.UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED), false,
+                        mWallDimObserver, UserHandle.USER_ALL);
                 context.registerReceiver(mDockModeReceiver,
                         new IntentFilter(Intent.ACTION_DOCK_EVENT));
                 IntentFilter batteryFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
@@ -638,6 +686,14 @@ final class UiModeManagerService extends SystemService {
                     Secure.UI_NIGHT_MODE_OVERRIDE_ON, 0, userId) != 0;
             mOverrideNightModeOff = Secure.getIntForUser(context.getContentResolver(),
                     Secure.UI_NIGHT_MODE_OVERRIDE_OFF, 0, userId) != 0;
+            mNightModeDimWall = Secure.getIntForUser(context.getContentResolver(),
+                    Secure.UI_NIGHT_MODE_DIM_WALL, 0, userId) != 0;
+            mDimAmount = (float) Secure.getIntForUser(context.getContentResolver(),
+                    Secure.UI_NIGHT_MODE_DIM_WALL_AMOUNT, 40, userId) / 100f;
+            mNightModeDimWallActivated = Secure.getIntForUser(context.getContentResolver(),
+                    Secure.UI_NIGHT_MODE_DIM_WALL_ACTIVATED, 0, userId) != 0;
+            mNightLightDimWallActivated = Secure.getIntForUser(context.getContentResolver(),
+                    Secure.UI_NIGHT_LIGHT_DIM_WALL_ACTIVATED, 0, userId) != 0;
             mCustomAutoNightModeStartMilliseconds = LocalTime.ofNanoOfDay(
                     Secure.getLongForUser(context.getContentResolver(),
                             Secure.DARK_THEME_CUSTOM_START_TIME,
@@ -1756,6 +1812,8 @@ final class UiModeManagerService extends SystemService {
         if (!mHoldingConfiguration && (!mWaitForDeviceInactive || mPowerSave)) {
             mConfiguration.uiMode = uiMode;
         }
+
+        maybeDimWall(uiMode);
     }
 
     @UiModeManager.NightMode
@@ -1765,6 +1823,44 @@ final class UiModeManagerService extends SystemService {
         uiMode &= mComputedNightMode ? ~Configuration.UI_MODE_NIGHT_NO
                 : ~Configuration.UI_MODE_NIGHT_YES;
         return uiMode;
+    }
+
+    private void maybeDimWall(int uiMode) {
+        final int flag = uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        switch (flag) {
+            case Configuration.UI_MODE_NIGHT_UNDEFINED:
+            case Configuration.UI_MODE_NIGHT_NO:
+                if (mNightModeDimWallActivated) {
+                    if (!mNightLightDimWallActivated) {
+                        dimWall(false);
+                    } else {
+                        setDimWallActivated(false);
+                    }
+                }
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                if (mNightModeDimWall && !mNightModeDimWallActivated) {
+                    dimWall(true);
+                }
+                break;
+        }
+        if (!mNightModeDimWall && mNightModeDimWallActivated && !mNightLightDimWallActivated) {
+            dimWall(false);
+        }
+    }
+
+    private void dimWall(boolean dim) {
+        if (mWallpaperManager == null) {
+            return;
+        }
+        mWallpaperManager.setWallpaperDimAmount(dim ? mDimAmount : 0f);
+        setDimWallActivated(dim);
+    }
+
+    private void setDimWallActivated(boolean activated) {
+        mNightModeDimWallActivated = activated;
+        Secure.putIntForUser(getContext().getContentResolver(),
+                Secure.UI_NIGHT_MODE_DIM_WALL_ACTIVATED, activated ? 1 : 0, mCurrentUser);
     }
 
     private boolean computeCustomNightMode() {
