@@ -37,6 +37,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.hardware.display.BrightnessConfiguration;
+import android.hardware.display.BrightnessInfo;
 import android.hardware.display.DisplayManagerInternal.DisplayPowerRequest;
 import android.net.Uri;
 import android.os.Handler;
@@ -45,6 +46,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.Trace;
 import android.provider.Settings;
 import android.util.EventLog;
@@ -57,7 +59,6 @@ import android.view.Display;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.display.BrightnessSynchronizer;
-import com.android.internal.display.BrightnessUtils;
 import com.android.internal.os.BackgroundThread;
 import com.android.server.EventLogTags;
 import com.android.server.display.brightness.BrightnessEvent;
@@ -112,6 +113,19 @@ public class AutomaticBrightnessController {
     private static final int MSG_UPDATE_FOREGROUND_APP_SYNC = 5;
     private static final int MSG_RUN_UPDATE = 6;
     private static final int MSG_INVALIDATE_PAUSED_SHORT_TERM_MODEL = 7;
+
+    // values used to convert between gamma and linear
+    private static final boolean mUsesLowGamma = Boolean.parseBoolean(
+            SystemProperties.get("persist.sys.brightness.low.gamma", "false"));
+    private static final int GAMMA_SPACE_MIN = 0;
+    private static final int GAMMA_SPACE_MAX = mUsesLowGamma ? 255 : 65535;
+    // Hybrid Log Gamma constant values
+    private static final float R = 0.5f;
+    private static final float A = 0.17883277f;
+    private static final float B = 0.28466892f;
+    private static final float C = 0.55991073f;
+    private float mBrightnessMin = PowerManager.BRIGHTNESS_MIN;
+    private float mBrightnessMax = PowerManager.BRIGHTNESS_MAX;
 
     // Callbacks for requesting updates to the display's power state
     private final Callbacks mCallbacks;
@@ -386,6 +400,12 @@ public class AutomaticBrightnessController {
         // Use the given short-term model
         if (userNits != BrightnessMappingStrategy.INVALID_NITS) {
             setScreenBrightnessByUser(userLux, getBrightnessFromNits(userNits));
+        }
+
+        final BrightnessInfo info = mContext.getDisplay().getBrightnessInfo();
+        if (info != null) {
+            mBrightnessMin = info.brightnessMinimum;
+            mBrightnessMax = info.brightnessMaximum;
         }
 
         mSettingsObserver = new SettingsObserver(mHandler);
@@ -1027,11 +1047,10 @@ public class AutomaticBrightnessController {
                         + "newScreenAutoBrightness=" + newScreenAutoBrightness);
             }
             if (!isManuallySet && mUserMinBrightness > 0) {
-                final float min = PowerManager.BRIGHTNESS_OFF + 1;
-                final float max = PowerManager.BRIGHTNESS_ON;
-                final float user = ((float) mUserMinBrightness / 100f) * (max - min) + min;
-                final float userLinearBrightness = BrightnessUtils.convertGammaToLinear(
-                        MathUtils.norm(min, max, user));
+                final int gamma = Math.round(GAMMA_SPACE_MIN +
+                        (mUserMinBrightness / 100f) * (GAMMA_SPACE_MAX - GAMMA_SPACE_MIN));
+                final float userLinearBrightness = convertGammaToLinearFloat(gamma,
+                        mBrightnessMin, mBrightnessMax);
                 newScreenAutoBrightness = Math.max(userLinearBrightness, newScreenAutoBrightness);
             }
             if (!withinThreshold) {
@@ -1057,6 +1076,24 @@ public class AutomaticBrightnessController {
                 mCallbacks.updateBrightness();
             }
         }
+    }
+
+    private static final float convertGammaToLinearFloat(int val, float min, float max) {
+        final float normalizedVal = MathUtils.norm(GAMMA_SPACE_MIN, GAMMA_SPACE_MAX, val);
+        final float ret;
+        if (normalizedVal <= R) {
+            ret = MathUtils.sq(normalizedVal / R);
+        } else {
+            ret = MathUtils.exp((normalizedVal - C) / A) + B;
+        }
+
+        // HLG is normalized to the range [0, 12], ensure that value is within that range,
+        // it shouldn't be out of bounds.
+        final float normalizedRet = MathUtils.constrain(ret, 0, 12);
+
+        return mUsesLowGamma
+                ? MathUtils.constrain(BrightnessSynchronizer.brightnessIntToFloat(val), min, max)
+                : MathUtils.lerp(min, max, normalizedRet / 12);
     }
 
     // Clamps values with float range [0.0-1.0]
