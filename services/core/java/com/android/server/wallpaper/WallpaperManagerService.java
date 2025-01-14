@@ -2796,6 +2796,10 @@ public class WallpaperManagerService extends IWallpaperManager.Stub
                 WallpaperData wallpaper = mWallpaperMap.get(userId);
                 WallpaperData lockWallpaper = mLockWallpaperMap.get(userId);
 
+                if (wallpaper == null || wallpaper.mUidToDimAmount == null) {
+                    return;
+                }
+
                 final boolean isDimBlocked = checkIsDimBlockedByUser();
 
                 // remove gone UIDs from the map

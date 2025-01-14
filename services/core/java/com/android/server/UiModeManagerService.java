@@ -1826,6 +1826,9 @@ final class UiModeManagerService extends SystemService {
     }
 
     private void maybeDimWall(int uiMode) {
+        if (!mSystemReady) {
+            return;
+        }
         final int flag = uiMode & Configuration.UI_MODE_NIGHT_MASK;
         switch (flag) {
             case Configuration.UI_MODE_NIGHT_UNDEFINED:

@@ -763,6 +763,9 @@ public final class ColorDisplayService extends SystemService {
     }
 
     private void maybeDimWall(boolean activated) {
+        if (!mBootCompleted) {
+            return;
+        }
         if (activated && mNightLightDimWall) {
             dimWall(true);
         } else if (!activated && mNightLightDimWallActivated) {
