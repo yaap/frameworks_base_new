@@ -60,6 +60,7 @@ public class VibratorHelper {
 
     private final Executor mExecutor;
     private final long mMaxDurationFallback;
+    private final boolean mWaveformFallback;
 
     /**
      * Creates a vibrator helper on a new single threaded {@link Executor}.
@@ -79,6 +80,8 @@ public class VibratorHelper {
 
         mMaxDurationFallback = context.getResources().getInteger(
                 com.android.internal.R.integer.config_sliderVibFallbackDuration);
+        mWaveformFallback = context.getResources().getBoolean(
+                com.android.internal.R.bool.config_sliderVibFallbackWaveform);
     }
 
     /**
@@ -152,6 +155,10 @@ public class VibratorHelper {
 
     public long getMaxDurationFallback() {
         return mMaxDurationFallback;
+    }
+
+    public boolean getWaveformFallback() {
+        return mWaveformFallback;
     }
 
     /**
